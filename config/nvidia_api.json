@@ -1,0 +1,12 @@
+{
+    "nvidia": {
+      "gpt_key":[
+        "",
+        "",
+        "",
+        ""
+      ],
+      "model_name": "writer/palmyra-fin-70b-32k",
+      "base_url": "https://integrate.api.nvidia.com/v1"
+    }
+  }

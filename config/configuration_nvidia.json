@@ -1,0 +1,17 @@
+{
+  "person": {
+    "gpt_key":"",
+    "model_name": "gpt-4o-2024-08-06",
+    "base_url": "https://api.ai-gaochao.cn/v1/chat/completions"
+  },
+  "test": {
+    "gpt_key": [
+      "",
+      "",
+      "",
+      ""
+    ],
+    "model_name": "meta/llama-3.1-8b-instruct",
+    "base_url": "https://integrate.api.nvidia.com/v1/chat/completions"
+  }
+}

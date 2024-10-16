@@ -1,0 +1,19 @@
+{
+  "person": {
+    "gpt_key":"",
+    "model_name": "gpt-4o-2024-08-06",
+    "base_url": "https://api.ai-gaochao.cn/v1/chat/completions"
+  },
+  "test": {
+    "gpt_key":[
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "model_name": "Qwen/Qwen2.5-14B-Instruct",
+    "base_url": "https://api.siliconflow.cn/v1/chat/completions"
+  }
+}
