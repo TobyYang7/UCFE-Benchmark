@@ -12,10 +12,8 @@ current_file_path = os.path.abspath(__file__)
 uc_legalbench_dir = os.path.dirname(os.path.dirname(current_file_path))
 
 # 构建configuration.json的完整路径
-CONFIG = os.path.join(uc_legalbench_dir, 'config', 'configuration_llama.json')
-# CONFIG = os.path.join(uc_legalbench_dir, 'config', 'configuration_gpt.json')
-# CONFIG = os.path.join(uc_legalbench_dir, 'config', 'configuration_nvidia.json')
-# CONFIG = os.path.join(uc_legalbench_dir, 'config', 'configuration_local.json')
+CONFIG = os.path.join(uc_legalbench_dir, 'config', 'configuration_gpt.json')
+
 
 class GPTPerson():
     def __init__(self, data):
@@ -116,24 +114,19 @@ class GPTPerson():
         return self.temp_messages
 
 
-from http import HTTPStatus
-import dashscope  # 这里假设你有这个模块
-key_list=[
-    ''
-          ]
-dashscope.api_key = key_list[0] if len(key_list) == 1 else random.choice(key_list)
+# Model类
 class GPTTest():
-    def __init__(self, data={}, model_name='llama3.1-70b-instruct'):
+    def __init__(self, data={},model_name='internlm2_5-7b-chat'):
         # 从配置文件的test部分读取配置信息
         with open(CONFIG, 'r', encoding='utf-8') as file:
             config = json.load(file)
 
         test_config = config["test"]
         self.api_keys = test_config["gpt_key"]
-        self.model_name = test_config.get("model_name", model_name)
+        self.model_name = test_config.get("model_name", "gpt-4")  # 默认值为 "gpt-4"
+        self.base_url = test_config.get("base_url", "https://api.ai-gaochao.cn/v1/chat/completions")
         self.data = data
 
-        # 格式化提示信息
         format_args = {}
         if "{information}" in self.data.get('model_prompt', ''):
             format_args["information"] = self.data.get("information", "")
@@ -142,43 +135,52 @@ class GPTTest():
         if format_args:
             self.data['model_prompt'] = self.data['model_prompt'].format(**format_args)
 
-        self.temp_messages = [{"role": "system", "content": self.data.get("model_prompt", "You are a helpful assistant.")}]
+        self.temp_messages = [{"role": "system", "content": self.data.get("model_prompt", "")}]
 
     @retry(wait_fixed=2000, stop_max_attempt_number=10)
     def call_api_timelimit(self):
         class InterruptableThread(threading.Thread):
-            def __init__(self, temp_messages, api_key, model_name):
+            def __init__(self, temp_messages, api_key, model_name, base_url):
                 threading.Thread.__init__(self)
                 self.result = None
                 self.temp_messages = temp_messages
                 self.api_keys = api_key
                 self.model_name = model_name
+                self.base_url = base_url
 
             def run(self):
+                current_key=''
                 try:
                     current_key = self.api_keys[0] if len(self.api_keys) == 1 else random.choice(self.api_keys)
-                    response = dashscope.Generation.call(
-                        model=self.model_name,
-                        messages=self.temp_messages,
-                        result_format='message',
-                        temperature=0.5,
-                        seed=123,
-                        frequency_penalty=0.5,
-                        presence_penalty=0.5,
-                    )
-                    if response.status_code == HTTPStatus.OK:
-                        response_text = response['output']['choices'][0]['message']['content']
-                        self.result = response_text
-                        self.total_tokens=response['usage']['total_tokens']
-                    else:
-                        raise Exception(
-                            f"Request id: {response.request_id}, Status code: {response.status_code}, error code: {response.code}, error message: {response.message}"
-                        )
+                    parameters = {
+                        "model": self.model_name,
+                        "messages": self.temp_messages,
+                        "temperature": 0.5,
+                        'seed':123,
+                        'frequency_penalty':0.5,
+                        'presence_penalty':0.5,
+                    }
+                    headers = {
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {current_key}"
+                    }
+                    response = requests.post(
+                        self.base_url,
+                        headers=headers,
+                        json=parameters,
+                    ).json()
+                    if 'choices' not in response and 'error' in response:
+                        raise Exception(response['error']['message'] + '\n' + 'apikey:' + current_key)
+                    response_text = response["choices"][0]["message"]["content"].strip()
+                    resp_tokens=response['usage']['total_tokens']
+                    self.result = response_text
+                    self.total_tokens=resp_tokens
                 except Exception as e:
-                    print(f"Error: {e}")
+                    print(e)
 
-        it = InterruptableThread(self.temp_messages, self.api_keys, self.model_name)
+        it = InterruptableThread(self.temp_messages, self.api_keys, self.model_name, self.base_url)
         it.start()
+        # 设置超时时间
         timeout_duration = 200
         it.join(timeout_duration)
         if it.is_alive() or it.result is None:
